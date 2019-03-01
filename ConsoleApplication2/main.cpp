@@ -303,99 +303,81 @@ int main(int argc, char** argv) {
 			for (int i = 0; i < path.size() - 1; i++) {
 				int tempWidth = 0;
 				int tempHeight = 0;
-				if (*(weightedMatrix + path[i].first * height + path[i].second * width + 0) > -1) {
 					tempHeight = path[i].first - 1;
 					tempWidth = path[i].second;
-					if (tempHeight == path[i + 1].first && tempWidth == path[i + 1].second && *(weightedMatrix + path[i + 1].first * height + path[i + 1].second * width + 0) < smallest) {
+					if (tempHeight >= 0 && tempWidth >= 0 && tempHeight < height && tempWidth < width && tempHeight == path[i + 1].first && tempWidth == path[i + 1].second && *(weightedMatrix + path[i + 1].first * height + path[i + 1].second * width + 0) < smallest) {
 						smallest = *(weightedMatrix + path[i].first * height + path[i].second * width + 0);
 					}
-
-				}
-				if (*(weightedMatrix + path[i].first * height + path[i].second * width + 1) > -1) {
 					tempHeight = path[i].first;
 					tempWidth = path[i].second + 1;
-					if (tempHeight == path[i + 1].first && tempWidth == path[i + 1].second && *(weightedMatrix + path[i + 1].first * height + path[i + 1].second * width + 1) < smallest) {
+					if (tempHeight >= 0 && tempWidth >= 0 && tempHeight < height && tempWidth < width && tempHeight == path[i + 1].first && tempWidth == path[i + 1].second && *(weightedMatrix + path[i + 1].first * height + path[i + 1].second * width + 1) < smallest) {
 						smallest = *(weightedMatrix + path[i].first * height + path[i].second * width + 1);
 					}
-				}
-				if (*(weightedMatrix + path[i].first * height + path[i].second * width + 2) > -1) {
 					tempHeight = path[i].first + 1;
 					tempWidth = path[i].second;
-					if (tempHeight == path[i + 1].first && tempWidth == path[i + 1].second && *(weightedMatrix + path[i + 1].first * height + path[i + 1].second * width + 2) < smallest) {
+					if (tempHeight >= 0 && tempWidth >= 0 && tempHeight < height && tempWidth < width &&tempHeight == path[i + 1].first && tempWidth == path[i + 1].second && *(weightedMatrix + path[i + 1].first * height + path[i + 1].second * width + 2) < smallest) {
 						smallest = *(weightedMatrix + path[i].first * height + path[i].second * width + 2);
 					}
-				}
-				if (*(weightedMatrix + path[i].first * height + path[i].second * width + 3) > -1) {
 					tempHeight = path[i].first;
 					tempWidth = path[i].second - 1;
-					if (tempHeight == path[i + 1].first && tempWidth == path[i + 1].second && *(weightedMatrix + path[i + 1].first * height + path[i + 1].second * width + 3) < smallest) {
+					if (tempHeight >= 0 && tempWidth >= 0 && tempHeight < height && tempWidth < width &&tempHeight == path[i + 1].first && tempWidth == path[i + 1].second && *(weightedMatrix + path[i + 1].first * height + path[i + 1].second * width + 3) < smallest) {
 						smallest = *(weightedMatrix + path[i].first * height + path[i].second * width + 3);
 					}
-				}
+				
 			}
 			for (int i = 0; i < path.size() - 1; i++) {
 				int tempWidth = 0;
 				int tempHeight = 0;
-				if (*(weightedMatrix + path[i].first * height + path[i].second * width + 0) > -1) {
 					tempHeight = path[i].first - 1;
 					tempWidth = path[i].second;
-					if (tempHeight == path[i + 1].first && tempWidth == path[i + 1].second) {
+					if (tempHeight >= 0 && tempWidth >= 0 && tempHeight < height && tempWidth < width &&tempHeight == path[i + 1].first && tempWidth == path[i + 1].second) {
 						*(weightedMatrix + path[i].first * height + path[i].second * width + 0) -= smallest;
 					}
-				}
-				if (*(weightedMatrix + path[i].first * height + path[i].second * width + 1) > -1) {
 					tempHeight = path[i].first;
 					tempWidth = path[i].second + 1;
-					if (tempHeight == path[i + 1].first && tempWidth == path[i + 1].second) {
+					if (tempHeight >= 0 && tempWidth >= 0 && tempHeight < height && tempWidth < width &&tempHeight == path[i + 1].first && tempWidth == path[i + 1].second) {
 						*(weightedMatrix + path[i].first * height + path[i].second * width + 1) -= smallest;
 					}
-				}
-				if (*(weightedMatrix + path[i].first * height + path[i].second * width + 2) > -1) {
 					tempHeight = path[i].first +1;
 					tempWidth = path[i].second;
-					if (tempHeight == path[i + 1].first && tempWidth == path[i + 1].second) {
+					if (tempHeight >= 0 && tempWidth >= 0 && tempHeight < height && tempWidth < width &&tempHeight == path[i + 1].first && tempWidth == path[i + 1].second) {
 						*(weightedMatrix + path[i].first * height + path[i].second * width + 2) -= smallest;
 					}
-				}
-				if (*(weightedMatrix + path[i].first * height + path[i].second * width + 3) > -1) {
+				
 					tempHeight = path[i].first ;
 					tempWidth = path[i].second - 1;
-					if (tempHeight == path[i + 1].first && tempWidth == path[i + 1].second) {
+					if (tempHeight >= 0 && tempWidth >= 0 && tempHeight < height && tempWidth < width &&tempHeight == path[i + 1].first && tempWidth == path[i + 1].second) {
 						*(weightedMatrix + path[i].first * height + path[i].second * width + 3) -= smallest;
 					}
-				}
+				
 			}
 			for (int i = 0; i < path.size() - 1; i++) {
 				int tempWidth = 0;
 				int tempHeight = 0;
-				if (*(weightedMatrix + path[i].first * height + path[i].second * width + 0) > -1) {
 					tempHeight = path[i].first - 1;
 					tempWidth = path[i].second;
-					if (tempHeight == path[i].first && tempWidth == path[i].second) {
+					if (tempHeight >= 0 && tempWidth >= 0 && tempHeight < height && tempWidth < width &&tempHeight == path[i].first && tempWidth == path[i].second) {
 						*(weightedMatrix + path[i + 1].first * height + path[i + 1].second * width + 0) += smallest;
 					}
-				}
-				if (*(weightedMatrix + path[i].first * height + path[i].second * width + 1) > -1) {
+				
 					tempHeight = path[i].first;
 					tempWidth = path[i].second + 1;
-					if (tempHeight == path[i].first && tempWidth == path[i].second) {
+					if (tempHeight >= 0 && tempWidth >= 0 && tempHeight < height && tempWidth < width &&tempHeight == path[i].first && tempWidth == path[i].second) {
 						*(weightedMatrix + path[i + 1].first * height + path[i + 1].second * width + 1) += smallest;
 					}
-				}
-				if (*(weightedMatrix + path[i].first * height + path[i].second * width + 2) > -1) {
+				
 					tempHeight = path[i].first + 1;
 					tempWidth = path[i].second;
-					if (tempHeight == path[i].first && tempWidth == path[i].second) {
+					if (tempHeight >= 0 && tempWidth >= 0 && tempHeight < height && tempWidth < width &&tempHeight == path[i].first && tempWidth == path[i].second) {
 						*(weightedMatrix + path[i + 1].first * height + path[i + 1].second * width + 2) += smallest;
 					}
-				}
-				if (*(weightedMatrix + path[i].first * height + path[i].second * width + 3) > -1) {
+				
 					tempHeight = path[i].first;
 					tempWidth = path[i].second - 1;
-					if (tempHeight == path[i].first && tempWidth == path[i].second) {
+					if (tempHeight >= 0 && tempWidth >= 0 && tempHeight < height && tempWidth < width &&tempHeight == path[i].first && tempWidth == path[i].second) {
 						*(weightedMatrix + path[i + 1].first * height + path[i + 1].second * width + 3) += smallest;
 					}
-				}
+				
 			}
 
 		}
@@ -439,10 +421,9 @@ int main(int argc, char** argv) {
 		qcolor.pop();
 		int tempWidth = 0;
 		int tempHeight = 0;
-		if (*(weightedMatrix + last.first * height + last.second * width + 0) > -1) {
 			tempHeight = last.first - 1;
 			tempWidth = last.second;
-			if (*(tempMatrix1 + tempHeight * height + tempWidth) == 0 && *(weightedMatrix + last.first * height + last.second * width + 0) > 0) {
+			if (tempHeight >= 0 && tempWidth >= 0 && tempHeight < height && tempWidth < width && *(tempMatrix1 + tempHeight * height + tempWidth) == 0 && *(weightedMatrix + last.first * height + last.second * width + 0) > 0) {
 				Vec3b pixel2;
 				pixel2[0] = 255;
 				pixel2[1] = 255;
@@ -455,11 +436,11 @@ int main(int argc, char** argv) {
 				*(tempMatrix1 + tempHeight * height + tempWidth) = 1;
 
 			}
-		}
-		if (*(weightedMatrix + last.first * height + last.second * width + 1) > -1) {
+		
+		
 			tempHeight = last.first;
 			tempWidth = last.second + 1;
-			if (*(tempMatrix1 + tempHeight * height + tempWidth) == 0 && *(weightedMatrix + last.first * height + last.second * width + 1) > 0) {
+			if (tempHeight >= 0 && tempWidth >= 0 && tempHeight < height && tempWidth < width &&*(tempMatrix1 + tempHeight * height + tempWidth) == 0 && *(weightedMatrix + last.first * height + last.second * width + 1) > 0) {
 				Vec3b pixel2;
 				pixel2[0] = 255;
 				pixel2[1] = 255;
@@ -473,11 +454,10 @@ int main(int argc, char** argv) {
 
 			}
 
-		}
-		if (*(weightedMatrix + last.first * height + last.second * width + 2) > -1) {
-			tempHeight = last.first + 1;
+		
+					tempHeight = last.first + 1;
 			tempWidth = last.second;
-			if (*(tempMatrix1 + tempHeight * height + tempWidth) == 0 && *(weightedMatrix + last.first * height + last.second * width + 2) > 0) {
+			if (tempHeight >= 0 && tempWidth >= 0 && tempHeight < height && tempWidth < width && *(tempMatrix1 + tempHeight * height + tempWidth) == 0 && *(weightedMatrix + last.first * height + last.second * width + 2) > 0) {
 				Vec3b pixel2;
 				pixel2[0] = 255;
 				pixel2[1] = 255;
@@ -490,11 +470,10 @@ int main(int argc, char** argv) {
 				*(tempMatrix1 + tempHeight * height + tempWidth) = 1;
 
 			}
-		}
-		if (*(weightedMatrix + last.first * height + last.second * width + 3) > -1) {
+		
 			tempHeight = last.first;
 			tempWidth = last.second - 1;
-			if (*(tempMatrix1 + tempHeight * height + tempWidth) == 0 && *(weightedMatrix + last.first * height + last.second * width + 3) > 0) {
+			if (tempHeight >= 0 && tempWidth >= 0 && tempHeight < height && tempWidth < width &&*(tempMatrix1 + tempHeight * height + tempWidth) == 0 && *(weightedMatrix + last.first * height + last.second * width + 3) > 0) {
 				Vec3b pixel2;
 				pixel2[0] = 255;
 				pixel2[1] = 255;
@@ -507,7 +486,7 @@ int main(int argc, char** argv) {
 				*(tempMatrix1 + tempHeight * height + tempWidth) = 1;
 
 			}
-		}
+		
 
 	}
 	imwrite("adasdsadsdas.png", out_image);
