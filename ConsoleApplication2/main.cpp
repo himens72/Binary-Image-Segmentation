@@ -245,10 +245,10 @@ int main(int argc, char** argv) {
 				generateSourceQueue();
 				break;
 			}
-			if (*(weightedMatrix + last.first * height + last.second * width + 0) > -1) {
+			//if (*(weightedMatrix + last.first * height + last.second * width + 0) > -1) {
 				int tempHeight = last.first - 1;
 				int tempWidth = last.second;
-				if (check(tempHeight, tempWidth, cpath) && *(weightedMatrix + last.first * height + last.second * width + 0) > 0 && *(tempMatrix + tempHeight * height + tempWidth) == 0) {
+				if (tempHeight >= 0 && tempWidth >=0 && tempHeight < height && tempWidth < width && check(tempHeight, tempWidth, cpath) && *(weightedMatrix + last.first * height + last.second * width + 0) > 0 && *(tempMatrix + tempHeight * height + tempWidth) == 0) {
 					//cout << "->last Height " << tempHeight << "last Width " << tempWidth << endl;
 					vector < pair<int, int> > opath(cpath);
 					//opath.push_back(adlis[last][i].first);
@@ -257,11 +257,11 @@ int main(int argc, char** argv) {
 					sourceQueue.push(opath);
 					//cout << "source queue size : " << sourceQueue.size() << endl;
 				}
-			} 
-			if (*(weightedMatrix + last.first * height + last.second * width + 1) > -1) {
-				int tempHeight = last.first;
-				int tempWidth = last.second + 1;
-				if (check(tempHeight, tempWidth, cpath) && *(weightedMatrix + last.first * height + last.second * width + 1) > 0 && *(tempMatrix + tempHeight * height + tempWidth) == 0) {
+			//} 
+			//if (*(weightedMatrix + last.first * height + last.second * width + 1) > -1) {
+				tempHeight = last.first;
+				tempWidth = last.second + 1;
+				if (tempHeight >= 0 && tempWidth >= 0 && tempHeight < height && tempWidth < width && check(tempHeight, tempWidth, cpath) && *(weightedMatrix + last.first * height + last.second * width + 1) > 0 && *(tempMatrix + tempHeight * height + tempWidth) == 0) {
 					//cout << "->last Height " << tempHeight << "last Width " << tempWidth << endl;
 					vector < pair<int, int> > opath(cpath);
 					//opath.push_back(adlis[last][i].first);
@@ -270,11 +270,11 @@ int main(int argc, char** argv) {
 					sourceQueue.push(opath);
 					//cout << "source queue size : " << sourceQueue.size() << endl;
 				}
-			} 
-			if (*(weightedMatrix + last.first * height + last.second * width + 2) > -1) {
-				int tempHeight = last.first +1 ;
-				int tempWidth = last.second;
-				if (check(tempHeight, tempWidth, cpath) && *(weightedMatrix + last.first * height + last.second * width + 2) > 0 && *(tempMatrix + tempHeight * height + tempWidth) == 0) {
+			//} 
+			//if (*(weightedMatrix + last.first * height + last.second * width + 2) > -1) {
+				tempHeight = last.first +1 ;
+				tempWidth = last.second;
+				if (tempHeight >= 0 && tempWidth >= 0 && tempHeight < height && tempWidth < width && check(tempHeight, tempWidth, cpath) && *(weightedMatrix + last.first * height + last.second * width + 2) > 0 && *(tempMatrix + tempHeight * height + tempWidth) == 0) {
 					//cout << "->last Height " << tempHeight << "last Width " << tempWidth << endl;
 					vector < pair<int, int> > opath(cpath);
 					//opath.push_back(adlis[last][i].first);
@@ -283,11 +283,11 @@ int main(int argc, char** argv) {
 					sourceQueue.push(opath);
 					///cout << "source queue size : " << sourceQueue.size() << endl;
 				}
-			}
-			if (*(weightedMatrix + last.first * height + last.second * width + 3) > -1) {
-				int tempHeight = last.first;
-				int tempWidth = last.second - 1;
-				if (check(tempHeight, tempWidth, cpath) && *(weightedMatrix + last.first * height + last.second * width + 3) > 0 && *(tempMatrix + tempHeight * height + tempWidth) == 0) {
+			//}
+			//if (*(weightedMatrix + last.first * height + last.second * width + 3) > -1) {
+				tempHeight = last.first;
+				tempWidth = last.second - 1;
+				if (tempHeight >= 0 && tempWidth >= 0 && tempHeight < height && tempWidth < width && check(tempHeight, tempWidth, cpath) && *(weightedMatrix + last.first * height + last.second * width + 3) > 0 && *(tempMatrix + tempHeight * height + tempWidth) == 0) {
 					//cout << "->last Height " << tempHeight << "last Width " << tempWidth << endl;
 					vector < pair<int, int> > opath(cpath);
 					//opath.push_back(adlis[last][i].first);
@@ -296,7 +296,7 @@ int main(int argc, char** argv) {
 					sourceQueue.push(opath);
 					//cout << "source queue size : " << sourceQueue.size() << endl;
 				}
-			}
+			//}
 		}
 		if (flag) {
 			int smallest = 99999999;
