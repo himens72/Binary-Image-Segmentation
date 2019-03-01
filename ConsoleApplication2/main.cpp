@@ -4,57 +4,46 @@
   *
   *
   */
-
 #include "pch.h"
 #include <opencv2/opencv.hpp>
-#include<fstream>
+#include <fstream>
 #include <utility>
-#include<queue>
-#include<vector>
-#define INT_MAX 2147483647
-#define INT_MIN -2147483648
+#include <queue>
+#include <vector>
+
 
 using namespace cv;
 using namespace std;
+int width;
+int height;
+vector < vector < pair < int, int > > > graphMatrix;
 int *source;// = (int *)malloc(entries * 2 * sizeof(int));
 int *sink;
-int *weightedMatrix;
 int sourceCount = 0;
 int sinkCount = 0;
 int entries;
-//vector<int> source;
-//vector<int> sink;
-queue<vector<pair<int, int>>> sourceQueue;
-//int check(int height, int width, int weight, vector < pair<int, int>> cpath) {
-int check(int heightIndex, int widthIndex, vector < pair<int, int>> cpath) {
+queue < vector < int > > sourceQueue;
+// checking is the pixel already present in path or not
+int check(int x, vector < int > cpath) {
 	int size = cpath.size();
-	for (int i = 0; i < size; i++) {
-		//cout << " Weight  : " << weight << " Current Weight" << *(weightedMatrix + cpath[i].first * height + cpath[i].second * width + j) << endl;
-		if (heightIndex == cpath[i].first && widthIndex == cpath[i].second)
+	for (int i = 0; i < size; i++)
+		if (cpath[i] == x)
 			return 0;
-	}
 	return 1;
 }
-int check2(int srcWidth, int srcHeight) {
+int check2(int la) {
+	int x1 = la;
 	for (int i = 0; i < sinkCount; i++) {
-		if (*(sink + i * entries + 1) == srcWidth && *(sink + i * entries + 0) == srcHeight)
+		if ((width * sink[1]) + sink[0] == x1)
 			return 1;
 	}
 	return 0;
-}
-
-void generateSourceQueue() {
-	for (int i = 0; i < sourceCount; i++) {
-		vector<pair<int, int>> temp;
-		temp.push_back(make_pair(*(source + sourceCount * entries + 0), *(source + sourceCount * entries + 1)));
-		sourceQueue.push(temp);
-	}
 }
 Mat readInputImage(/*char* inputFile*/) {
 	Mat inputImage = imread("simple.png");
 	return  inputImage;
 }
-void readConfigFile(/*char* inputFile,*/ int width, int height) {
+void readConfigFile(/*char* inputFile*/) {
 	ifstream configFile("config.txt");
 	configFile >> entries;
 	source = (int *)malloc(entries * 2 * sizeof(int));
@@ -64,56 +53,41 @@ void readConfigFile(/*char* inputFile,*/ int width, int height) {
 		int w, h, marker;
 		configFile >> h >> w >> marker;
 		if (marker == 1) {
-			*(source + sourceCount * entries + 0) = h - 1;
-			*(source + sourceCount * entries + 1) = w - 1;
+			*(source + sourceCount * entries + 0) = h;
+			*(source + sourceCount * entries + 1) = w;
 			//cout << "Source Width" << *(source + sourceCount * entries + 1) << " Height " << *(source + sourceCount * entries + 0) << endl;
 			sourceCount++;
-			vector<pair<int, int>> temp;
-			temp.push_back(make_pair(h, w));
+			vector <int> temp;
+			temp.push_back((width * w) + h);
 			sourceQueue.push(temp);
 		}
 		else {
-			*(sink + sinkCount * entries + 0) = h - 1;
-			*(sink + sinkCount * entries + 1) = w - 1;
+			*(sink + sinkCount * entries + 0) = h;
+			*(sink + sinkCount * entries + 1) = w;
 			cout << "Sink Width" << *(sink + sinkCount * entries + 1) << " Height " << *(sink + sinkCount * entries + 0) << endl;
 			sinkCount++;
 		}
 	}
-	/*for (int i = 0; i < entries; i++) {
-		int w, h, marker;
-		configFile >> w >> h >> marker;
-		if (marker == 1) {
-			source.push_back((width * w) + h);
-			sourceQueue.push((width * w) + h);
-			//cout << i << " " << (width * w) + h << endl;
-		}
-		else {
-			sink.push_back((width * w) + h);
-			cout << i << " " << (width * w) + h << endl;
-		}
-	}*/
-	cout << "Source Queue Size : " << sourceQueue.size() << endl;
 }
-int main(int argc, char** argv) {
+int main(int argc, char * * argv) {
 	/*
 	if (argc != 4) {
-		//cout << "Invalid Argument" << endl;
+		cout << "Usage: ../seg input_image initialization_file output_mask" << endl;
 		return -1;
 	}
 	*/
+	
 	Mat inputImage = readInputImage(/*argv[1]*/);
-	if (!inputImage.data) {
-		cout << "Could not load input image!!!" << endl;
+	if (!inputImage.data || inputImage.channels() != 3) {
+		cout << "Unable to Load Image or  3 channels doesn't exist!!!" << endl;
 		return -1;
 	}
-	if (inputImage.channels() != 3) {
-		cout << "Image does not have 3 channels!!! " << inputImage.depth() << endl;
-		return -1;
-	}
-	int width = inputImage.cols;
-	int height = inputImage.rows;
-	readConfigFile(/*argv[2],*/ width, height);
+	readConfigFile(/*argv[2]*/);
+	width = inputImage.cols;
+	height = inputImage.rows;
+	// the output image
 	Mat sourceImage = inputImage.clone();
+	Mat outputImage;
 	Mat grayImage;
 	GaussianBlur(sourceImage, sourceImage, Size(3, 3), 0, 0, BORDER_DEFAULT);
 	cvtColor(sourceImage, grayImage, COLOR_BGR2GRAY/*CV_BGR2GRAY*/);
@@ -123,16 +97,15 @@ int main(int argc, char** argv) {
 	int delta = 0;
 	Mat grad_x, grad_y;
 	Mat abs_grad_x, abs_grad_y;
-	Mat grad;
+	Mat gradientImage;
 	Sobel(grayImage, grad_x, CV_16S, 1, 0, 3, scale, delta, BORDER_DEFAULT);
 	Sobel(grayImage, grad_y, CV_16S, 0, 1, 3, scale, delta, BORDER_DEFAULT);
 	convertScaleAbs(grad_x, abs_grad_x);
 	convertScaleAbs(grad_y, abs_grad_y);
-	addWeighted(abs_grad_x, 0.5, abs_grad_y, 0.5, 0, grad);
+	addWeighted(abs_grad_x, 0.5, abs_grad_y, 0.5, 0, gradientImage);
 	int maxIntensity = 0; // maximum intensity of pixel
-	/*
-	* This for loop identifies maximum intensity among pixel from GrayScale Image
-	*/
+	// getting max energy of pixel in image
+	int maxIntensity = 0;
 	for (int i = 0; i < height; i++) {
 		for (int j = 0; j < width; j++) {
 			if (maxIntensity < grayImage.at<uchar>(i, j)) {
@@ -140,363 +113,264 @@ int main(int argc, char** argv) {
 			}
 		}
 	}
+	graphMatrix.resize(height * width);
+	//calculate weights by taking pixel and pixel toward its left,right,down,up
+	for (int id = 0; id < height * width; id++) {
+		int i = id / width;
+		int j = id % width;
+		if (id == 0) {
+			int weightssd = maxIntensity - ((gradientImage.at < uchar >(i, j) + gradientImage.at < uchar >(i + 1, j)) / 2);
+			int weightssr = maxIntensity - ((gradientImage.at < uchar >(i, j) + gradientImage.at < uchar >(i, j + 1)) / 2);
+			pair < int, int > npair1 = make_pair((i)* width + j + 1, weightssr);
+			graphMatrix[id].push_back(npair1);
+			pair < int, int > npair = make_pair((i + 1) * width + j, weightssd);
+			graphMatrix[id].push_back(npair);
+		}
+		else if (id == width - 1) {
+			int weightssd = maxIntensity - ((gradientImage.at < uchar >(i, j) + gradientImage.at < uchar >(i + 1, j)) / 2);
+			int weightssl = maxIntensity - ((gradientImage.at < uchar >(i, j) + gradientImage.at < uchar >(i, j - 1)) / 2);
+			pair < int, int > npair = make_pair((i + 1) * width + j, weightssd);
+			graphMatrix[id].push_back(npair);
+			pair < int, int > npair1 = make_pair((i)* width + j - 1, weightssl);
+			graphMatrix[id].push_back(npair1);
+		}
+		else if (id == width * (height - 1)) {
+			int weightssu = maxIntensity - ((gradientImage.at < uchar >(i, j) + gradientImage.at < uchar >(i - 1, j)) / 2);
+			int weightssr = maxIntensity - ((gradientImage.at < uchar >(i, j) + gradientImage.at < uchar >(i, j + 1)) / 2);
+			pair < int, int > npair = make_pair((i - 1) * width + j, weightssu);
+			graphMatrix[id].push_back(npair);
+			pair < int, int > npair1 = make_pair((i)* width + j + 1, weightssr);
+			graphMatrix[id].push_back(npair1);
+		}
+		else if (id == height * width - 1) {
+			int weightssu = maxIntensity - ((gradientImage.at < uchar >(i, j) + gradientImage.at < uchar >(i - 1, j)) / 2);
+			int weightssl = maxIntensity - ((gradientImage.at < uchar >(i, j) + gradientImage.at < uchar >(i, j - 1)) / 2);
+			pair < int, int > npair1 = make_pair((i)* width + j - 1, weightssl);
+			graphMatrix[id].push_back(npair1);
+			pair < int, int > npair = make_pair((i - 1) * width + j, weightssu);
+			graphMatrix[id].push_back(npair);
+		}
+		else if (id / width == 0) {
+			int weightssd = maxIntensity - ((gradientImage.at < uchar >(i, j) + gradientImage.at < uchar >(i + 1, j)) / 2);
+			int weightssl = maxIntensity - ((gradientImage.at < uchar >(i, j) + gradientImage.at < uchar >(i, j - 1)) / 2);
+			int weightssr = maxIntensity - ((gradientImage.at < uchar >(i, j) + gradientImage.at < uchar >(i, j + 1)) / 2);
+			pair < int, int > npair1 = make_pair((i)* width + j + 1, weightssr);
+			graphMatrix[id].push_back(npair1);
+			pair < int, int > npair2 = make_pair((i + 1) * width + j, weightssd);
+			graphMatrix[id].push_back(npair2);
+			pair < int, int > npair3 = make_pair((i)* width + j - 1, weightssl);
+			graphMatrix[id].push_back(npair3);
+		}
+		else if ((id + 1) % width == 0) {
+			int weightssd = maxIntensity - ((gradientImage.at < uchar >(i, j) + gradientImage.at < uchar >(i + 1, j)) / 2);
+			int weightssu = maxIntensity - ((gradientImage.at < uchar >(i, j) + gradientImage.at < uchar >(i - 1, j)) / 2);
+			int weightssl = maxIntensity - ((gradientImage.at < uchar >(i, j) + gradientImage.at < uchar >(i, j - 1)) / 2);
+			pair < int, int > npair = make_pair((i - 1) * width + j, weightssu);
+			graphMatrix[id].push_back(npair);
+			pair < int, int > npair2 = make_pair((i + 1) * width + j, weightssd);
+			graphMatrix[id].push_back(npair2);
+			pair < int, int > npair3 = make_pair((i)* width + j - 1, weightssl);
+			graphMatrix[id].push_back(npair3);
+		}
+		else if (id % width == 0) {
+			int weightssd = maxIntensity - ((gradientImage.at < uchar >(i, j) + gradientImage.at < uchar >(i + 1, j)) / 2);
+			int weightssu = maxIntensity - ((gradientImage.at < uchar >(i, j) + gradientImage.at < uchar >(i - 1, j)) / 2);
+			int weightssr = maxIntensity - ((gradientImage.at < uchar >(i, j) + gradientImage.at < uchar >(i, j + 1)) / 2);
+			pair < int, int > npair = make_pair((i - 1) * width + j, weightssu);
+			graphMatrix[id].push_back(npair);
+			pair < int, int > npair1 = make_pair((i)* width + j + 1, weightssr);
+			graphMatrix[id].push_back(npair1);
+			pair < int, int > npair2 = make_pair((i + 1) * width + j, weightssd);
+			graphMatrix[id].push_back(npair2);
+		}
+		else if (id > (width * (height - 1))) {
+			int weightssu = maxIntensity - ((gradientImage.at < uchar >(i, j) + gradientImage.at < uchar >(i - 1, j)) / 2);
+			int weightssl = maxIntensity - ((gradientImage.at < uchar >(i, j) + gradientImage.at < uchar >(i, j - 1)) / 2);
+			int weightssr = maxIntensity - ((gradientImage.at < uchar >(i, j) + gradientImage.at < uchar >(i, j + 1)) / 2);
+			pair < int, int > npair = make_pair((i - 1) * width + j, weightssu);
+			graphMatrix[id].push_back(npair);
+			pair < int, int > npair1 = make_pair((i)* width + j + 1, weightssr);
+			graphMatrix[id].push_back(npair1);
+			pair < int, int > npair3 = make_pair((i)* width + j - 1, weightssl);
+			graphMatrix[id].push_back(npair3);
+		}
+		else {
+			int weightssd = maxIntensity - ((gradientImage.at < uchar >(i, j) + gradientImage.at < uchar >(i + 1, j)) / 2);
+			int weightssu = maxIntensity - ((gradientImage.at < uchar >(i, j) + gradientImage.at < uchar >(i - 1, j)) / 2);
+			int weightssl = maxIntensity - ((gradientImage.at < uchar >(i, j) + gradientImage.at < uchar >(i, j - 1)) / 2);
+			int weightssr = maxIntensity - ((gradientImage.at < uchar >(i, j) + gradientImage.at < uchar >(i, j + 1)) / 2);
+			pair < int, int > npair = make_pair((i - 1) * width + j, weightssu);
+			graphMatrix[id].push_back(npair);
+			pair < int, int > npair1 = make_pair((i)* width + j + 1, weightssr);
+			graphMatrix[id].push_back(npair1);
+			pair < int, int > npair2 = make_pair((i + 1) * width + j, weightssd);
+			graphMatrix[id].push_back(npair2);
+			pair < int, int > npair3 = make_pair((i)* width + j - 1, weightssl);
+			graphMatrix[id].push_back(npair3);
+		}
+	}
+
+	//calculating total number of pixels
+	int ncont = 0;
+	int totl = 0;
+	for (int i = 0; i < height * width; i++) {
+		for (int j = 0; j < graphMatrix[i].size(); j++) {
+			totl = totl + graphMatrix[i][j].second;
+			ncont++;
+		}
+	}
+	int avr = totl / ncont;
+	for (int i = 0; i < height * width; i++) {
+		for (int j = 0; j < graphMatrix[i].size(); j++) {
+			if (graphMatrix[i][j].second < avr) {
+				graphMatrix[i][j].second = 1;
+			}
+			else {
+				graphMatrix[i][j].second = 1000000;
+			}
+		}
+	}
+	vector < pair < int, int > > comb2;
+	for (int i = 0; i < height * width; i++) {
+		pair < int, int > npair = make_pair(i, 0);
+		comb2.push_back(npair);
+	}
+	vector < pair < int, int > > comb;
+	for (int i = 0; i < height * width; i++) {
+		pair < int, int > npair = make_pair(i, 0);
+		comb.push_back(npair);
+	}
+	int label;
+	vector < int > path;
+	
+	vector<int>::iterator it;
+	// min cut max flow 
 	ofstream OUTPUT_FILE("weight.txt");
-	OUTPUT_FILE << "Maximum Intensity : " << maxIntensity << endl;
-	//cout << height * width << endl;
-	weightedMatrix = (int *)malloc(height* width * 4 * sizeof(int));
-	int count = 0;
-	int total = 0;
-	for (int i = 0; i < height; i++) {
-		for (int j = 0; j < width; j++) {
-			count++;
-			int weightTop = -1;
-			int weightRight = -1;
-			int weightDown = -1;
-			int weightLeft = -1;
-			if (i - 1 != -1) {
-				weightTop = maxIntensity - ((grad.at<uchar>(i, j) + grad.at<uchar>(i - 1, j)) / 2);
-				count++;
-				total += weightTop;
-			}
-			else {
-				//OUTPUT_FILE << " Top " << i << " " << j << endl;
-			}
-			if (j + 1 < width) {
-				weightRight = maxIntensity - ((grad.at<uchar>(i, j) + grad.at<uchar>(i, j + 1)) / 2);
-				count++;
-				total += weightRight;
-			}
-			else {
-				//OUTPUT_FILE << " Right " << i << " " << j << endl;
-			}
-			if (i + 1 < height) {
-				weightDown = maxIntensity - ((grad.at<uchar>(i, j) + grad.at<uchar>(i + 1, j)) / 2);
-				count++;
-				total += weightDown;
-			}
-			else {
-				//OUTPUT_FILE << " Down " << i << " " << j << endl;
-			}
-			if (j - 1 != -1) {
-				weightLeft = maxIntensity - ((grad.at<uchar>(i, j) + grad.at<uchar>(i, j - 1)) / 2);
-				count++;
-				total += weightLeft;
-			}
-			else {
-				//	OUTPUT_FILE << " Left " << i << " " << j << endl;
-			}
-			OUTPUT_FILE << "Weight  Top  " << weightTop << " Right " << weightRight << " Down " << weightDown << " Left " << weightLeft << endl;
-			*(weightedMatrix + i * height + j * width + 0) = weightTop;
-			*(weightedMatrix + i * height + j * width + 1) = weightRight;
-			*(weightedMatrix + i * height + j * width + 2) = weightDown;
-			*(weightedMatrix + i * height + j * width + 3) = weightLeft;
-		}
-	}
-	cout << " Total : " << total << endl;
-	OUTPUT_FILE.close();
-	cout << "Count : " << count << endl;
-	int averagePixel = total / count;
-	cout << "averagePixel : " << averagePixel << endl;
-	for (int i = 0; i < height; i++) {
-		for (int j = 0; j < width; j++) {
-			for (int k = 0; k < 4; k++) {
-				if (*(weightedMatrix + i * height + j * width + k) < averagePixel && *(weightedMatrix + i * height + j * width + k) != -1) {
-					*(weightedMatrix + i * height + j * width + k) = 1;
-				}
-				else if (*(weightedMatrix + i * height + j * width + k) != -1) {
-					*(weightedMatrix + i * height + j * width + k) = 1000000;
-				}
-			}
-		}
-	}
-	int *tempMatrix = (int *)malloc(height* width * sizeof(int));
-	for (int i = 0; i < height; i++) {
-		for (int j = 0; j < width; j++) {
-					*(tempMatrix + i * height + j) = 0;
-		}
-	}
-	//generateSourceQueue();
-	bool flag = true;
-	vector <pair<int, int>> path;
-	while (flag) {
-		flag = false;
+	bool v;
+	v = true;
+	while (v == true) {
+		v = false;
 		while (!sourceQueue.empty()) {
-			//cout << "dasdsadasd " << endl;
-			again: vector <pair<int, int>> cpath;
+		again: vector < int > cpath;
 			cpath = sourceQueue.front();
-			//cout << " Cpath Size " << cpath.size() << " Queue Size " << sourceQueue.size() << endl;
+			OUTPUT_FILE << "  " << cpath.size() << endl;
 			sourceQueue.pop();
-			//cout << " Cpath Size " << cpath.size() << " Source Queue" << sourceQueue.size() << endl;
-			pair<int, int> last = cpath.back();
-			int srcHeight = last.first;
-			int srcWidth = last.second;
-			if (check2(srcWidth, srcHeight) == 1) {
-				flag = true;
+			int last = cpath.back();
+			if (check2(last) == 1) {
 				path.clear();
 				path = cpath;
-				for (int i = 0; i < height; i++) {
-					for (int j = 0; j < width; j++) {		
-						*(tempMatrix + i * height + j ) = 0;			
-					}
+				v = true;
+				comb.clear();
+				for (int i = 0; i < height * width; i++) {
+					pair < int, int > npair = make_pair(i, 0);
+					comb.push_back(npair);
 				}
 				while (!sourceQueue.empty()) {
 					sourceQueue.pop();
 				}
-				generateSourceQueue();
+				for (int i = 0; i < sourceCount; i++) {
+					vector<int> path0;
+					path0.push_back(source[i]);
+					sourceQueue.push(path0);
+				}
 				break;
 			}
-			//if (*(weightedMatrix + last.first * height + last.second * width + 0) > -1) {
-				int tempHeight = last.first - 1;
-				int tempWidth = last.second;
-				if (tempHeight >= 0 && tempWidth >=0 && tempHeight < height && tempWidth < width && check(tempHeight, tempWidth, cpath) && *(weightedMatrix + last.first * height + last.second * width + 0) > 0 && *(tempMatrix + tempHeight * height + tempWidth) == 0) {
-					//cout << "->last Height " << tempHeight << "last Width " << tempWidth << endl;
-					vector < pair<int, int> > opath(cpath);
-					//opath.push_back(adlis[last][i].first);
-					opath.push_back(make_pair(tempHeight, tempWidth));
-					*(tempMatrix + tempHeight * height + tempWidth) = 1;
+			for (int i = 0; i < graphMatrix[last].size(); ++i) {
+				if (check(graphMatrix[last][i].first, cpath) && graphMatrix[last][i].second > 0 && comb[graphMatrix[last][i].first].second == 0) {
+					vector < int > opath(cpath);
+					opath.push_back(graphMatrix[last][i].first);
+					comb[graphMatrix[last][i].first].second = 1;
 					sourceQueue.push(opath);
-					//cout << "source queue size : " << sourceQueue.size() << endl;
 				}
-			//} 
-			//if (*(weightedMatrix + last.first * height + last.second * width + 1) > -1) {
-				tempHeight = last.first;
-				tempWidth = last.second + 1;
-				if (tempHeight >= 0 && tempWidth >= 0 && tempHeight < height && tempWidth < width && check(tempHeight, tempWidth, cpath) && *(weightedMatrix + last.first * height + last.second * width + 1) > 0 && *(tempMatrix + tempHeight * height + tempWidth) == 0) {
-					//cout << "->last Height " << tempHeight << "last Width " << tempWidth << endl;
-					vector < pair<int, int> > opath(cpath);
-					//opath.push_back(adlis[last][i].first);
-					opath.push_back(make_pair(tempHeight, tempWidth));
-					*(tempMatrix + tempHeight * height + tempWidth) = 1;
-					sourceQueue.push(opath);
-					//cout << "source queue size : " << sourceQueue.size() << endl;
-				}
-			//} 
-			//if (*(weightedMatrix + last.first * height + last.second * width + 2) > -1) {
-				tempHeight = last.first +1 ;
-				tempWidth = last.second;
-				if (tempHeight >= 0 && tempWidth >= 0 && tempHeight < height && tempWidth < width && check(tempHeight, tempWidth, cpath) && *(weightedMatrix + last.first * height + last.second * width + 2) > 0 && *(tempMatrix + tempHeight * height + tempWidth) == 0) {
-					//cout << "->last Height " << tempHeight << "last Width " << tempWidth << endl;
-					vector < pair<int, int> > opath(cpath);
-					//opath.push_back(adlis[last][i].first);
-					opath.push_back(make_pair(tempHeight, tempWidth));
-					*(tempMatrix + tempHeight * height + tempWidth) = 1;
-					sourceQueue.push(opath);
-					///cout << "source queue size : " << sourceQueue.size() << endl;
-				}
-			//}
-			//if (*(weightedMatrix + last.first * height + last.second * width + 3) > -1) {
-				tempHeight = last.first;
-				tempWidth = last.second - 1;
-				if (tempHeight >= 0 && tempWidth >= 0 && tempHeight < height && tempWidth < width && check(tempHeight, tempWidth, cpath) && *(weightedMatrix + last.first * height + last.second * width + 3) > 0 && *(tempMatrix + tempHeight * height + tempWidth) == 0) {
-					//cout << "->last Height " << tempHeight << "last Width " << tempWidth << endl;
-					vector < pair<int, int> > opath(cpath);
-					//opath.push_back(adlis[last][i].first);
-					opath.push_back(make_pair(tempHeight, tempWidth));
-					*(tempMatrix + tempHeight * height + tempWidth) = 1;
-					sourceQueue.push(opath);
-					//cout << "source queue size : " << sourceQueue.size() << endl;
-				}
-			//}
+			}
 		}
-		if (flag) {
+		if (v == true) {
 			int smallest = 99999999;
 			for (int i = 0; i < path.size() - 1; i++) {
-				int tempWidth = 0;
-				int tempHeight = 0;
-					tempHeight = path[i].first - 1;
-					tempWidth = path[i].second;
-					if (tempHeight >= 0 && tempWidth >= 0 && tempHeight < height && tempWidth < width && tempHeight == path[i + 1].first && tempWidth == path[i + 1].second && *(weightedMatrix + path[i + 1].first * height + path[i + 1].second * width + 0) < smallest) {
-						smallest = *(weightedMatrix + path[i].first * height + path[i].second * width + 0);
+				for (int j = 0; j < graphMatrix[path[i]].size(); j++) {
+					if (graphMatrix[path[i]][j].first == path[i + 1]) {
+						if (graphMatrix[path[i]][j].second < smallest) {
+							smallest = graphMatrix[path[i]][j].second;
+						}
 					}
-					tempHeight = path[i].first;
-					tempWidth = path[i].second + 1;
-					if (tempHeight >= 0 && tempWidth >= 0 && tempHeight < height && tempWidth < width && tempHeight == path[i + 1].first && tempWidth == path[i + 1].second && *(weightedMatrix + path[i + 1].first * height + path[i + 1].second * width + 1) < smallest) {
-						smallest = *(weightedMatrix + path[i].first * height + path[i].second * width + 1);
-					}
-					tempHeight = path[i].first + 1;
-					tempWidth = path[i].second;
-					if (tempHeight >= 0 && tempWidth >= 0 && tempHeight < height && tempWidth < width &&tempHeight == path[i + 1].first && tempWidth == path[i + 1].second && *(weightedMatrix + path[i + 1].first * height + path[i + 1].second * width + 2) < smallest) {
-						smallest = *(weightedMatrix + path[i].first * height + path[i].second * width + 2);
-					}
-					tempHeight = path[i].first;
-					tempWidth = path[i].second - 1;
-					if (tempHeight >= 0 && tempWidth >= 0 && tempHeight < height && tempWidth < width &&tempHeight == path[i + 1].first && tempWidth == path[i + 1].second && *(weightedMatrix + path[i + 1].first * height + path[i + 1].second * width + 3) < smallest) {
-						smallest = *(weightedMatrix + path[i].first * height + path[i].second * width + 3);
-					}
-				
+				}
 			}
 			for (int i = 0; i < path.size() - 1; i++) {
-				int tempWidth = 0;
-				int tempHeight = 0;
-					tempHeight = path[i].first - 1;
-					tempWidth = path[i].second;
-					if (tempHeight >= 0 && tempWidth >= 0 && tempHeight < height && tempWidth < width &&tempHeight == path[i + 1].first && tempWidth == path[i + 1].second) {
-						*(weightedMatrix + path[i].first * height + path[i].second * width + 0) -= smallest;
-					}
-					tempHeight = path[i].first;
-					tempWidth = path[i].second + 1;
-					if (tempHeight >= 0 && tempWidth >= 0 && tempHeight < height && tempWidth < width &&tempHeight == path[i + 1].first && tempWidth == path[i + 1].second) {
-						*(weightedMatrix + path[i].first * height + path[i].second * width + 1) -= smallest;
-					}
-					tempHeight = path[i].first +1;
-					tempWidth = path[i].second;
-					if (tempHeight >= 0 && tempWidth >= 0 && tempHeight < height && tempWidth < width &&tempHeight == path[i + 1].first && tempWidth == path[i + 1].second) {
-						*(weightedMatrix + path[i].first * height + path[i].second * width + 2) -= smallest;
-					}
-				
-					tempHeight = path[i].first ;
-					tempWidth = path[i].second - 1;
-					if (tempHeight >= 0 && tempWidth >= 0 && tempHeight < height && tempWidth < width &&tempHeight == path[i + 1].first && tempWidth == path[i + 1].second) {
-						*(weightedMatrix + path[i].first * height + path[i].second * width + 3) -= smallest;
-					}
-				
-			}
-			for (int i = 0; i < path.size() - 1; i++) {
-				int tempWidth = 0;
-				int tempHeight = 0;
-					tempHeight = path[i].first - 1;
-					tempWidth = path[i].second;
-					if (tempHeight >= 0 && tempWidth >= 0 && tempHeight < height && tempWidth < width &&tempHeight == path[i].first && tempWidth == path[i].second) {
-						*(weightedMatrix + path[i + 1].first * height + path[i + 1].second * width + 0) += smallest;
-					}
-				
-					tempHeight = path[i].first;
-					tempWidth = path[i].second + 1;
-					if (tempHeight >= 0 && tempWidth >= 0 && tempHeight < height && tempWidth < width &&tempHeight == path[i].first && tempWidth == path[i].second) {
-						*(weightedMatrix + path[i + 1].first * height + path[i + 1].second * width + 1) += smallest;
-					}
-				
-					tempHeight = path[i].first + 1;
-					tempWidth = path[i].second;
-					if (tempHeight >= 0 && tempWidth >= 0 && tempHeight < height && tempWidth < width &&tempHeight == path[i].first && tempWidth == path[i].second) {
-						*(weightedMatrix + path[i + 1].first * height + path[i + 1].second * width + 2) += smallest;
-					}
-				
-					tempHeight = path[i].first;
-					tempWidth = path[i].second - 1;
-					if (tempHeight >= 0 && tempWidth >= 0 && tempHeight < height && tempWidth < width &&tempHeight == path[i].first && tempWidth == path[i].second) {
-						*(weightedMatrix + path[i + 1].first * height + path[i + 1].second * width + 3) += smallest;
-					}
-				
-			}
+				for (int j = 0; j < graphMatrix[path[i]].size(); j++) {
+					if (graphMatrix[path[i]][j].first == path[i + 1]) {
+						graphMatrix[path[i]][j].second = graphMatrix[path[i]][j].second - smallest;
 
+					}
+				}
+
+			}
+			for (int i = 0; i < path.size() - 1; i++) {
+				for (int j = 0; j < graphMatrix[path[i + 1]].size(); j++) {
+					if (graphMatrix[path[i + 1]][j].first == path[i]) {
+						graphMatrix[path[i + 1]][j].second = graphMatrix[path[i + 1]][j].second + smallest;
+					}
+				}
+			}
 		}
 	}
-
-	Mat out_image = inputImage.clone();
-
 	for (int i = 0; i < height; i++) {
 		for (int j = 0; j < width; j++) {
 			Vec3b pixel;
-			pixel[0] = 0;
-			pixel[1] = 0;
-			pixel[2] = 0;
-			out_image.at<Vec3b>(i, j) = pixel;
+			pixel[0] = 255;
+			pixel[1] = 255;
+			pixel[2] = 255;
+			outputImage.at<Vec3b>(i, j) = pixel;
 		}
 	}
-	int *tempMatrix1 = (int *)malloc(height* width * sizeof(int));
-	for (int i = 0; i < height; i++) {
-		for (int j = 0; j < width; j++) {
-				*(tempMatrix1 + i * height + j ) = 0;
-
-		}
+	vector < pair < int, int > > comb1;
+	for (int i = 0; i < height * width; i++) {
+		pair < int, int > npair = make_pair(i, 0);
+		comb1.push_back(npair);
 	}
 	Vec3b pixel2;
 	pixel2[0] = 0;
 	pixel2[1] = 0;
-	pixel2[2] = 255;
+	pixel2[2] = 0;
 
-	queue <pair<int, int> > qcolor;
-	pair<int, int> u;
-	u.first = *(source + 0 * entries + 0);
-	u.second = *(source + 0 * entries + 1);
+	queue < int > qcolor;
+	int u = source[0];
 	qcolor.push(u);
-	out_image.at < Vec3b >(u.first, u.second) = pixel2;
+	int x1, x2;
+	x1 = u / width;
+	x2 = u % width;
+	outputImage.at < Vec3b >(x1, x2) = pixel2;
 	int mino = 99999999;
 
 	//performing BFS
 	while (!qcolor.empty()) {
-		//cout << "Qcolor Size : " << qcolor.size() << endl;
-		pair<int, int> last = qcolor.front();
+		int last = qcolor.front();
 		qcolor.pop();
-		int tempWidth = 0;
-		int tempHeight = 0;
-			tempHeight = last.first - 1;
-			tempWidth = last.second;
-			if (tempHeight >= 0 && tempWidth >= 0 && tempHeight < height && tempWidth < width && *(tempMatrix1 + tempHeight * height + tempWidth) == 0 && *(weightedMatrix + last.first * height + last.second * width + 0) > 0) {
+		for (int i = 0; i < graphMatrix[last].size(); ++i) {
+			if (comb1[graphMatrix[last][i].first].second == 0 && graphMatrix[last][i].second > 0) {
 				Vec3b pixel2;
 				pixel2[0] = 255;
 				pixel2[1] = 255;
-				pixel2[2] = 225;
+				pixel2[2] = 255;
 				int x3, x4;
-				x3 = tempHeight;
-				x4 = tempWidth;
-				out_image.at < Vec3b >(x3, x4) = pixel2;
-				qcolor.push(make_pair(tempHeight, tempWidth));
-				*(tempMatrix1 + tempHeight * height + tempWidth) = 1;
-
+				x3 = (graphMatrix[last][i].first) / width;
+				x4 = (graphMatrix[last][i].first) % width;
+				outputImage.at < Vec3b >(x3, x4) = pixel2;
+				qcolor.push(graphMatrix[last][i].first);
+				comb1[graphMatrix[last][i].first].second = 1;
 			}
-		
-		
-			tempHeight = last.first;
-			tempWidth = last.second + 1;
-			if (tempHeight >= 0 && tempWidth >= 0 && tempHeight < height && tempWidth < width &&*(tempMatrix1 + tempHeight * height + tempWidth) == 0 && *(weightedMatrix + last.first * height + last.second * width + 1) > 0) {
-				Vec3b pixel2;
-				pixel2[0] = 255;
-				pixel2[1] = 255;
-				pixel2[2] = 225;
-				int x3, x4;
-				x3 = tempHeight;
-				x4 = tempWidth;
-				out_image.at < Vec3b >(x3, x4) = pixel2;
-				qcolor.push(make_pair(tempHeight, tempWidth));
-				*(tempMatrix1 + tempHeight * height + tempWidth) = 1;
-
-			}
-
-		
-					tempHeight = last.first + 1;
-			tempWidth = last.second;
-			if (tempHeight >= 0 && tempWidth >= 0 && tempHeight < height && tempWidth < width && *(tempMatrix1 + tempHeight * height + tempWidth) == 0 && *(weightedMatrix + last.first * height + last.second * width + 2) > 0) {
-				Vec3b pixel2;
-				pixel2[0] = 255;
-				pixel2[1] = 255;
-				pixel2[2] = 225;
-				int x3, x4;
-				x3 = tempHeight;
-				x4 = tempWidth;
-				out_image.at < Vec3b >(x3, x4) = pixel2;
-				qcolor.push(make_pair(tempHeight, tempWidth));
-				*(tempMatrix1 + tempHeight * height + tempWidth) = 1;
-
-			}
-		
-			tempHeight = last.first;
-			tempWidth = last.second - 1;
-			if (tempHeight >= 0 && tempWidth >= 0 && tempHeight < height && tempWidth < width &&*(tempMatrix1 + tempHeight * height + tempWidth) == 0 && *(weightedMatrix + last.first * height + last.second * width + 3) > 0) {
-				Vec3b pixel2;
-				pixel2[0] = 255;
-				pixel2[1] = 255;
-				pixel2[2] = 225;
-				int x3, x4;
-				x3 = tempHeight;
-				x4 = tempWidth;
-				out_image.at < Vec3b >(x3, x4) = pixel2;
-				qcolor.push(make_pair(tempHeight, tempWidth));
-				*(tempMatrix1 + tempHeight * height + tempWidth) = 1;
-
-			}
-		
-
+		}
 	}
-	imwrite("adasdsadsdas.png", out_image);
 
-	imwrite("a1.png", sourceImage);
-	imwrite("a2.png", grayImage);
-	imwrite("grad_x.png", grad_x);
-	imwrite("grad_y.png", grad_y);
-	imwrite("abs_grad_x.png", abs_grad_x);
-	imwrite("abs_grad_y.png", abs_grad_y);
-	imwrite("grad.png", grad);
+
+	// write it on disk
+	imwrite(argv[3], outputImage);
+
+	// also display them both
+	OUTPUT_FILE.close();
+	namedWindow("Original image", WINDOW_AUTOSIZE);
+	namedWindow("Show Marked Pixels", WINDOW_AUTOSIZE);
+	imshow("Original image", inputImage);
+	imshow("Show Marked Pixels", outputImage);
+	waitKey(0);
 	return 0;
 }
