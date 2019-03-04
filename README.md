@@ -1,1 +1,1 @@
-# Binary-Image-Segmentation
+# Binary Image Segmentation
