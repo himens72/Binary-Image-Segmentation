@@ -150,7 +150,6 @@ int main(int argc, char * * argv) {
 		return -1;
 	}
 	generateGradientImage();
-	//calculate the pixel energies
 	width = INPUT_IMAGE.cols;
 	height = INPUT_IMAGE.rows;
 	totalPixel = height * width;
