@@ -4,7 +4,6 @@
   *
   *
   */
-
 #include "pch.h"
 #include <opencv2/opencv.hpp>
 #include<fstream>
@@ -18,6 +17,8 @@ using namespace std;
 Mat INPUT_IMAGE;
 Mat OUTPUT_IMAGE;
 vector < vector < pair < int, int > > > weightedMatrix;
+vector < pair < int, int > > initialMatrix1;
+vector < pair < int, int > > initialMatrix2;
 Mat GRAYSCALE_IMAGE;
 Mat GRADIENT_IMAGE;
 int MAXIMUM_INTENSITY = 0;
@@ -25,8 +26,8 @@ int height;
 int width;
 int totalPixel;
 bool *visited;
-vector<int> source;
-vector<int> target;
+vector < int > source;
+vector < int > sink;
 queue < vector < int > > sourceQueue;
 
 int check(int x, vector < int > cpath) {
@@ -36,10 +37,9 @@ int check(int x, vector < int > cpath) {
 			return 0;
 	return 1;
 }
-int check2(vector<int> tar, int la) {
-	int x1 = la;
-	for (int i = 0; i < tar.size(); i++) {
-		if (tar[i] == x1)
+int check2(int  index) {
+	for (int i = 0; i < sink.size(); i++) {
+		if (sink[i] == index)
 			return 1;
 	}
 	return 0;
@@ -53,13 +53,13 @@ void readInputImage(char* inputFile) {
 // This Method is used to generate Gradient Image 
 void generateGradientImage() {
 	cvtColor(INPUT_IMAGE, GRAYSCALE_IMAGE, COLOR_BGR2GRAY);
-	Mat grad_x, grad_y;
-	Mat abs_grad_x, abs_grad_y;
-	Sobel(GRAYSCALE_IMAGE, grad_x, CV_16S, 1, 0, 3, 1, 0, BORDER_DEFAULT);
-	Sobel(GRAYSCALE_IMAGE, grad_y, CV_16S, 0, 1, 3, 1, 0, BORDER_DEFAULT);
-	convertScaleAbs(grad_x, abs_grad_x);
-	convertScaleAbs(grad_y, abs_grad_y);
-	addWeighted(abs_grad_x, 0.5, abs_grad_y, 0.5, 0, GRADIENT_IMAGE);
+	Mat sobel_x, sobel_y;
+	Mat absolute_x, absolute_y;
+	Sobel(GRAYSCALE_IMAGE, sobel_x, CV_16S, 1, 0, 3, 1, 0, BORDER_DEFAULT);
+	Sobel(GRAYSCALE_IMAGE, sobel_y, CV_16S, 0, 1, 3, 1, 0, BORDER_DEFAULT);
+	convertScaleAbs(sobel_x, absolute_x);
+	convertScaleAbs(sobel_y, absolute_y);
+	addWeighted(absolute_x, 0.5, absolute_y, 0.5, 0, GRADIENT_IMAGE);
 }
 void calculateMaximumIntensity() {
 	for (int i = 0; i < height; i++) {
@@ -90,12 +90,12 @@ int readConfigFile(char* configFile) {
 		}
 		if (marker == 1) {
 			source.push_back((width * y) + x);
-			vector<int> temp;
-			temp.push_back((width * y) + x);
-			sourceQueue.push(temp);
+			vector<int> path0;
+			path0.push_back((width * y) + x);
+			sourceQueue.push(path0);
 		}
 		else {
-			target.push_back((width * y) + x);
+			sink.push_back((width * y) + x);
 		}
 	}
 	return 0;
@@ -108,20 +108,36 @@ void generateBackground(int i, int j) {
 	pixel[2] = 0;
 	OUTPUT_IMAGE.at<Vec3b>(i, j) = pixel;
 }
-
-void generateSourceQueue() {
-	while (!sourceQueue.empty()) {
-		sourceQueue.pop();
-	}
-	for (int i = 0; i < source.size(); i++) {
-		vector<int> temp;
-		temp.push_back(source[i]);
-		sourceQueue.push(temp);
+void performBFS() {
+	Vec3b pixel;
+	pixel[0] = 255;
+	pixel[1] = 255;
+	pixel[2] = 255;
+	queue < int > PIXEL_COLOR;
+	PIXEL_COLOR.push(source[0]);
+	visited[source[0]] = true;
+	OUTPUT_IMAGE.at < Vec3b >(source[0] / width, source[0] % width) = pixel;
+	//performing BFS
+	while (!PIXEL_COLOR.empty()) {
+		int last = PIXEL_COLOR.front();
+		PIXEL_COLOR.pop();
+		for (int i = 0; i < weightedMatrix[last].size(); ++i) {
+			if (!visited[weightedMatrix[last][i].first] && initialMatrix2[weightedMatrix[last][i].first].second == 0 && weightedMatrix[last][i].second > 0) {
+				Vec3b pixel;
+				pixel[0] = 255; // blue color
+				pixel[1] = 255; // red color
+				pixel[2] = 255; // green color
+				OUTPUT_IMAGE.at < Vec3b >((weightedMatrix[last][i].first) / width, (weightedMatrix[last][i].first) % width) = pixel;
+				visited[weightedMatrix[last][i].first] = true;
+				PIXEL_COLOR.push(weightedMatrix[last][i].first);
+				initialMatrix2[weightedMatrix[last][i].first].second = 1;
+			}
+		}
 	}
 }
 int main(int argc, char * * argv) {
 	if (argc != 4) {
-		cout << "Usage: ../seg INPUT_IMAGE_NAME CONFIG_FILE_NAME OUTPUT_IMAGE_NAME" << endl;
+		cout << "Usage: ../seg input_image initialization_file output_mask" << endl;
 		return -1;
 	}
 	readInputImage(argv[1]);
@@ -129,12 +145,12 @@ int main(int argc, char * * argv) {
 		cout << "Could not load input image!!!" << endl;
 		return -1;
 	}
-
 	if (INPUT_IMAGE.channels() != 3) {
 		cout << "Image does not have 3 channels!!! " << INPUT_IMAGE.depth() << endl;
 		return -1;
 	}
 	generateGradientImage();
+	//calculate the pixel energies
 	width = INPUT_IMAGE.cols;
 	height = INPUT_IMAGE.rows;
 	totalPixel = height * width;
@@ -142,11 +158,12 @@ int main(int argc, char * * argv) {
 	visited = new bool[totalPixel];
 	bool *tempVisited = new bool[totalPixel];
 	weightedMatrix.resize(totalPixel);
-	vector < pair < int, int > > initialMatrix1; //initialMatrix1 is a matrix used  to identify which pixel is background or foreground
-	vector < pair < int, int > > initialMatrix2; //initialMatrix2 is a matrix used  to identify which pixel is background or foreground
+	initialMatrix1.resize(totalPixel);
+	initialMatrix2.resize(totalPixel);
 	int totalEdge = 0;
 	int averageWeight;
 	int totalWeight = 0;
+	cout << "Weight Modified" << endl;
 	for (int id = 0; id < totalPixel; id++) {
 		int i = id / width;
 		int j = id % width;
@@ -156,130 +173,88 @@ int main(int argc, char * * argv) {
 		initialMatrix2.push_back(make_pair(id, 0));
 		generateBackground(i, j);
 		if (id == 0) {
-			int WEIGHT_DOWN = MAXIMUM_INTENSITY - ((GRADIENT_IMAGE.at < uchar >(i, j) + GRADIENT_IMAGE.at < uchar >(i + 1, j)) / 2);
-			int WEIGHT_RIGHT = MAXIMUM_INTENSITY - ((GRADIENT_IMAGE.at < uchar >(i, j) + GRADIENT_IMAGE.at < uchar >(i, j + 1)) / 2);
 			totalEdge += 2;
+			int WEIGHT_RIGHT = MAXIMUM_INTENSITY - ((GRADIENT_IMAGE.at < uchar >(i, j) + GRADIENT_IMAGE.at < uchar >(i, j + 1)) / 2);
+			weightedMatrix[id].push_back(make_pair((i)* width + j + 1, WEIGHT_RIGHT));
+			int WEIGHT_DOWN = MAXIMUM_INTENSITY - ((GRADIENT_IMAGE.at < uchar >(i, j) + GRADIENT_IMAGE.at < uchar >(i + 1, j)) / 2);
+			weightedMatrix[id].push_back(make_pair((i + 1) * width + j, WEIGHT_DOWN));
 			totalWeight = totalWeight + WEIGHT_DOWN + WEIGHT_RIGHT;
-			pair < int, int > npair1 = make_pair((i)* width + j + 1, WEIGHT_RIGHT);
-			weightedMatrix[id].push_back(npair1);
-			pair < int, int > npair = make_pair((i + 1) * width + j, WEIGHT_DOWN);
-			weightedMatrix[id].push_back(npair);
 		}
 		else if (id == width - 1) {
-			int WEIGHT_DOWN = MAXIMUM_INTENSITY - ((GRADIENT_IMAGE.at < uchar >(i, j) + GRADIENT_IMAGE.at < uchar >(i + 1, j)) / 2);
-			int WEIGHT_LEFT = MAXIMUM_INTENSITY - ((GRADIENT_IMAGE.at < uchar >(i, j) + GRADIENT_IMAGE.at < uchar >(i, j - 1)) / 2);
 			totalEdge += 2;
+			int WEIGHT_DOWN = MAXIMUM_INTENSITY - ((GRADIENT_IMAGE.at < uchar >(i, j) + GRADIENT_IMAGE.at < uchar >(i + 1, j)) / 2);
+			weightedMatrix[id].push_back(make_pair((i + 1) * width + j, WEIGHT_DOWN));
+			int WEIGHT_LEFT = MAXIMUM_INTENSITY - ((GRADIENT_IMAGE.at < uchar >(i, j) + GRADIENT_IMAGE.at < uchar >(i, j - 1)) / 2);
+			weightedMatrix[id].push_back(make_pair((i)* width + j - 1, WEIGHT_LEFT));
 			totalWeight = totalWeight + WEIGHT_DOWN + WEIGHT_LEFT;
-			pair < int, int > npair = make_pair((i + 1) * width + j, WEIGHT_DOWN);
-			weightedMatrix[id].push_back(npair);
-			pair < int, int > npair1 = make_pair((i)* width + j - 1, WEIGHT_LEFT);
-			weightedMatrix[id].push_back(npair1);
-
 		}
 		else if (id == width * (height - 1)) {
-
-			int WEIGHT_UP = MAXIMUM_INTENSITY - ((GRADIENT_IMAGE.at < uchar >(i, j) + GRADIENT_IMAGE.at < uchar >(i - 1, j)) / 2);
-			int WEIGHT_RIGHT = MAXIMUM_INTENSITY - ((GRADIENT_IMAGE.at < uchar >(i, j) + GRADIENT_IMAGE.at < uchar >(i, j + 1)) / 2);
 			totalEdge += 2;
+			int WEIGHT_UP = MAXIMUM_INTENSITY - ((GRADIENT_IMAGE.at < uchar >(i, j) + GRADIENT_IMAGE.at < uchar >(i - 1, j)) / 2);
+			weightedMatrix[id].push_back(make_pair((i - 1) * width + j, WEIGHT_UP));
+			int WEIGHT_RIGHT = MAXIMUM_INTENSITY - ((GRADIENT_IMAGE.at < uchar >(i, j) + GRADIENT_IMAGE.at < uchar >(i, j + 1)) / 2);
+			weightedMatrix[id].push_back(make_pair((i)* width + j + 1, WEIGHT_RIGHT));
 			totalWeight = totalWeight + WEIGHT_UP + WEIGHT_RIGHT;
-			pair < int, int > npair = make_pair((i - 1) * width + j, WEIGHT_UP);
-			weightedMatrix[id].push_back(npair);
-			pair < int, int > npair1 = make_pair((i)* width + j + 1, WEIGHT_RIGHT);
-			weightedMatrix[id].push_back(npair1);
 		}
 		else if (id == totalPixel - 1) {
-			int WEIGHT_UP = MAXIMUM_INTENSITY - ((GRADIENT_IMAGE.at < uchar >(i, j) + GRADIENT_IMAGE.at < uchar >(i - 1, j)) / 2);
-			int WEIGHT_LEFT = MAXIMUM_INTENSITY - ((GRADIENT_IMAGE.at < uchar >(i, j) + GRADIENT_IMAGE.at < uchar >(i, j - 1)) / 2);
 			totalEdge += 2;
+			int WEIGHT_LEFT = MAXIMUM_INTENSITY - ((GRADIENT_IMAGE.at < uchar >(i, j) + GRADIENT_IMAGE.at < uchar >(i, j - 1)) / 2);
+			weightedMatrix[id].push_back(make_pair((i)* width + j - 1, WEIGHT_LEFT));
+			int WEIGHT_UP = MAXIMUM_INTENSITY - ((GRADIENT_IMAGE.at < uchar >(i, j) + GRADIENT_IMAGE.at < uchar >(i - 1, j)) / 2);
+			weightedMatrix[id].push_back(make_pair((i - 1) * width + j, WEIGHT_UP));
 			totalWeight = totalWeight + WEIGHT_UP + WEIGHT_LEFT;
-			pair < int, int > npair1 = make_pair((i)* width + j - 1, WEIGHT_LEFT);
-			weightedMatrix[id].push_back(npair1);
-			pair < int, int > npair = make_pair((i - 1) * width + j, WEIGHT_UP);
-			weightedMatrix[id].push_back(npair);
 		}
 		else if (id / width == 0) {
-			int WEIGHT_DOWN = MAXIMUM_INTENSITY - ((GRADIENT_IMAGE.at < uchar >(i, j) + GRADIENT_IMAGE.at < uchar >(i + 1, j)) / 2);
-			int WEIGHT_LEFT = MAXIMUM_INTENSITY - ((GRADIENT_IMAGE.at < uchar >(i, j) + GRADIENT_IMAGE.at < uchar >(i, j - 1)) / 2);
 			int WEIGHT_RIGHT = MAXIMUM_INTENSITY - ((GRADIENT_IMAGE.at < uchar >(i, j) + GRADIENT_IMAGE.at < uchar >(i, j + 1)) / 2);
 			totalEdge += 3;
+			int WEIGHT_DOWN = MAXIMUM_INTENSITY - ((GRADIENT_IMAGE.at < uchar >(i, j) + GRADIENT_IMAGE.at < uchar >(i + 1, j)) / 2);
+			weightedMatrix[id].push_back(make_pair((i + 1) * width + j, WEIGHT_DOWN));
+			int WEIGHT_LEFT = MAXIMUM_INTENSITY - ((GRADIENT_IMAGE.at < uchar >(i, j) + GRADIENT_IMAGE.at < uchar >(i, j - 1)) / 2);
+			weightedMatrix[id].push_back(make_pair((i)* width + j + 1, WEIGHT_RIGHT));
+			weightedMatrix[id].push_back(make_pair((i)* width + j - 1, WEIGHT_LEFT));
 			totalWeight = totalWeight + WEIGHT_DOWN + WEIGHT_LEFT + WEIGHT_RIGHT;
-			pair < int, int > npair1 = make_pair((i)* width + j + 1, WEIGHT_RIGHT);
-			weightedMatrix[id].push_back(npair1);
-
-			pair < int, int > npair2 = make_pair((i + 1) * width + j, WEIGHT_DOWN);
-			weightedMatrix[id].push_back(npair2);
-
-			pair < int, int > npair3 = make_pair((i)* width + j - 1, WEIGHT_LEFT);
-			weightedMatrix[id].push_back(npair3);
-
 		}
 		else if ((id + 1) % width == 0) {
-			int WEIGHT_DOWN = MAXIMUM_INTENSITY - ((GRADIENT_IMAGE.at < uchar >(i, j) + GRADIENT_IMAGE.at < uchar >(i + 1, j)) / 2);
-			int WEIGHT_UP = MAXIMUM_INTENSITY - ((GRADIENT_IMAGE.at < uchar >(i, j) + GRADIENT_IMAGE.at < uchar >(i - 1, j)) / 2);
-			int WEIGHT_LEFT = MAXIMUM_INTENSITY - ((GRADIENT_IMAGE.at < uchar >(i, j) + GRADIENT_IMAGE.at < uchar >(i, j - 1)) / 2);
 			totalEdge += 3;
+			int WEIGHT_UP = MAXIMUM_INTENSITY - ((GRADIENT_IMAGE.at < uchar >(i, j) + GRADIENT_IMAGE.at < uchar >(i - 1, j)) / 2);
+			weightedMatrix[id].push_back(make_pair((i - 1) * width + j, WEIGHT_UP));
+			int WEIGHT_DOWN = MAXIMUM_INTENSITY - ((GRADIENT_IMAGE.at < uchar >(i, j) + GRADIENT_IMAGE.at < uchar >(i + 1, j)) / 2);
+			weightedMatrix[id].push_back(make_pair((i + 1) * width + j, WEIGHT_DOWN));
+			int WEIGHT_LEFT = MAXIMUM_INTENSITY - ((GRADIENT_IMAGE.at < uchar >(i, j) + GRADIENT_IMAGE.at < uchar >(i, j - 1)) / 2);
+			weightedMatrix[id].push_back(make_pair((i)* width + j - 1, WEIGHT_LEFT));
 			totalWeight = totalWeight + WEIGHT_DOWN + WEIGHT_LEFT + WEIGHT_UP;
-			pair < int, int > npair = make_pair((i - 1) * width + j, WEIGHT_UP);
-			weightedMatrix[id].push_back(npair);
-
-			pair < int, int > npair2 = make_pair((i + 1) * width + j, WEIGHT_DOWN);
-			weightedMatrix[id].push_back(npair2);
-
-			pair < int, int > npair3 = make_pair((i)* width + j - 1, WEIGHT_LEFT);
-			weightedMatrix[id].push_back(npair3);
 		}
 		else if (id % width == 0) {
-			int WEIGHT_DOWN = MAXIMUM_INTENSITY - ((GRADIENT_IMAGE.at < uchar >(i, j) + GRADIENT_IMAGE.at < uchar >(i + 1, j)) / 2);
-			int WEIGHT_UP = MAXIMUM_INTENSITY - ((GRADIENT_IMAGE.at < uchar >(i, j) + GRADIENT_IMAGE.at < uchar >(i - 1, j)) / 2);
-
-			int WEIGHT_RIGHT = MAXIMUM_INTENSITY - ((GRADIENT_IMAGE.at < uchar >(i, j) + GRADIENT_IMAGE.at < uchar >(i, j + 1)) / 2);
 			totalEdge += 3;
+			int WEIGHT_UP = MAXIMUM_INTENSITY - ((GRADIENT_IMAGE.at < uchar >(i, j) + GRADIENT_IMAGE.at < uchar >(i - 1, j)) / 2);
+			weightedMatrix[id].push_back(make_pair((i - 1) * width + j, WEIGHT_UP));
+			int WEIGHT_RIGHT = MAXIMUM_INTENSITY - ((GRADIENT_IMAGE.at < uchar >(i, j) + GRADIENT_IMAGE.at < uchar >(i, j + 1)) / 2);
+			weightedMatrix[id].push_back(make_pair((i)* width + j + 1, WEIGHT_RIGHT));
+			int WEIGHT_DOWN = MAXIMUM_INTENSITY - ((GRADIENT_IMAGE.at < uchar >(i, j) + GRADIENT_IMAGE.at < uchar >(i + 1, j)) / 2);
+			weightedMatrix[id].push_back(make_pair((i + 1) * width + j, WEIGHT_DOWN));
 			totalWeight = totalWeight + WEIGHT_DOWN + WEIGHT_RIGHT + WEIGHT_UP;
-			pair < int, int > npair = make_pair((i - 1) * width + j, WEIGHT_UP);
-			weightedMatrix[id].push_back(npair);
-
-			pair < int, int > npair1 = make_pair((i)* width + j + 1, WEIGHT_RIGHT);
-			weightedMatrix[id].push_back(npair1);
-
-			pair < int, int > npair2 = make_pair((i + 1) * width + j, WEIGHT_DOWN);
-			weightedMatrix[id].push_back(npair2);
-
 		}
 		else if (id > (width * (height - 1))) {
-			int WEIGHT_UP = MAXIMUM_INTENSITY - ((GRADIENT_IMAGE.at < uchar >(i, j) + GRADIENT_IMAGE.at < uchar >(i - 1, j)) / 2);
-			int WEIGHT_LEFT = MAXIMUM_INTENSITY - ((GRADIENT_IMAGE.at < uchar >(i, j) + GRADIENT_IMAGE.at < uchar >(i, j - 1)) / 2);
-			int WEIGHT_RIGHT = MAXIMUM_INTENSITY - ((GRADIENT_IMAGE.at < uchar >(i, j) + GRADIENT_IMAGE.at < uchar >(i, j + 1)) / 2);
 			totalEdge += 3;
+			int WEIGHT_UP = MAXIMUM_INTENSITY - ((GRADIENT_IMAGE.at < uchar >(i, j) + GRADIENT_IMAGE.at < uchar >(i - 1, j)) / 2);
+			weightedMatrix[id].push_back(make_pair((i - 1) * width + j, WEIGHT_UP));
+			int WEIGHT_RIGHT = MAXIMUM_INTENSITY - ((GRADIENT_IMAGE.at < uchar >(i, j) + GRADIENT_IMAGE.at < uchar >(i, j + 1)) / 2);
+			weightedMatrix[id].push_back(make_pair((i)* width + j + 1, WEIGHT_RIGHT));
+			int WEIGHT_LEFT = MAXIMUM_INTENSITY - ((GRADIENT_IMAGE.at < uchar >(i, j) + GRADIENT_IMAGE.at < uchar >(i, j - 1)) / 2);
+			weightedMatrix[id].push_back(make_pair((i)* width + j - 1, WEIGHT_LEFT));
 			totalWeight = totalWeight + WEIGHT_RIGHT + WEIGHT_LEFT + WEIGHT_UP;
-			pair < int, int > npair = make_pair((i - 1) * width + j, WEIGHT_UP);
-			weightedMatrix[id].push_back(npair);
-
-			pair < int, int > npair1 = make_pair((i)* width + j + 1, WEIGHT_RIGHT);
-			weightedMatrix[id].push_back(npair1);
-
-			pair < int, int > npair3 = make_pair((i)* width + j - 1, WEIGHT_LEFT);
-			weightedMatrix[id].push_back(npair3);
-
 		}
 		else {
-
-			int WEIGHT_DOWN = MAXIMUM_INTENSITY - ((GRADIENT_IMAGE.at < uchar >(i, j) + GRADIENT_IMAGE.at < uchar >(i + 1, j)) / 2);
-			int WEIGHT_UP = MAXIMUM_INTENSITY - ((GRADIENT_IMAGE.at < uchar >(i, j) + GRADIENT_IMAGE.at < uchar >(i - 1, j)) / 2);
-			int WEIGHT_LEFT = MAXIMUM_INTENSITY - ((GRADIENT_IMAGE.at < uchar >(i, j) + GRADIENT_IMAGE.at < uchar >(i, j - 1)) / 2);
-			int WEIGHT_RIGHT = MAXIMUM_INTENSITY - ((GRADIENT_IMAGE.at < uchar >(i, j) + GRADIENT_IMAGE.at < uchar >(i, j + 1)) / 2);
 			totalEdge += 4;
+			int WEIGHT_UP = MAXIMUM_INTENSITY - ((GRADIENT_IMAGE.at < uchar >(i, j) + GRADIENT_IMAGE.at < uchar >(i - 1, j)) / 2);
+			weightedMatrix[id].push_back(make_pair((i - 1) * width + j, WEIGHT_UP));
+			int WEIGHT_RIGHT = MAXIMUM_INTENSITY - ((GRADIENT_IMAGE.at < uchar >(i, j) + GRADIENT_IMAGE.at < uchar >(i, j + 1)) / 2);
+			weightedMatrix[id].push_back(make_pair((i)* width + j + 1, WEIGHT_RIGHT));
+			int WEIGHT_DOWN = MAXIMUM_INTENSITY - ((GRADIENT_IMAGE.at < uchar >(i, j) + GRADIENT_IMAGE.at < uchar >(i + 1, j)) / 2);
+			weightedMatrix[id].push_back(make_pair((i + 1) * width + j, WEIGHT_DOWN));
+			int WEIGHT_LEFT = MAXIMUM_INTENSITY - ((GRADIENT_IMAGE.at < uchar >(i, j) + GRADIENT_IMAGE.at < uchar >(i, j - 1)) / 2);
+			weightedMatrix[id].push_back(make_pair((i)* width + j - 1, WEIGHT_LEFT));
 			totalWeight = totalWeight + WEIGHT_RIGHT + WEIGHT_LEFT + WEIGHT_UP + WEIGHT_DOWN;
-			pair < int, int > npair = make_pair((i - 1) * width + j, WEIGHT_UP);
-			weightedMatrix[id].push_back(npair);
-
-			pair < int, int > npair1 = make_pair((i)* width + j + 1, WEIGHT_RIGHT);
-			weightedMatrix[id].push_back(npair1);
-
-			pair < int, int > npair2 = make_pair((i + 1) * width + j, WEIGHT_DOWN);
-			weightedMatrix[id].push_back(npair2);
-
-			pair < int, int > npair3 = make_pair((i)* width + j - 1, WEIGHT_LEFT);
-			weightedMatrix[id].push_back(npair3);
 		}
 	}
 	averageWeight = totalWeight / totalEdge;
@@ -292,42 +267,45 @@ int main(int argc, char * * argv) {
 				weightedMatrix[i][j].second = 1;
 			}
 			else {
-				weightedMatrix[i][j].second = 1000000;
+				weightedMatrix[i][j].second = 1000;
 			}
 		}
 	}
 	if (readConfigFile(argv[2]) == -1)
 		return -1;
-	int label;
-
 	vector < int > path;
 	// min cut max flow 
-	int xyz = 0;
 	bool flag = true;
 	while (flag == true) {
 		flag = false;
 		while (!sourceQueue.empty()) {
-		again: vector < int > currentPath;
-			currentPath = sourceQueue.front();
+		again: vector < int > cpath;
+			cpath = sourceQueue.front();
 			tempVisited[sourceQueue.front()[0]] = true;
 			sourceQueue.pop();
-			int last = currentPath.back();
-			if (check2(target, last) == 1) {
+			int last = cpath.back();
+			if (check2(last) == 1) {
 				path.clear();
-				path = currentPath;
+				path = cpath;
 				flag = true;
 				initialMatrix1.clear();
 				initialMatrix1 = initialMatrix2;
-				//generateSourceQueue();
+				while (!sourceQueue.empty()) {
+					sourceQueue.pop();
+				}
+				for (int i = 0; i < source.size(); i++) {
+					vector<int> path0;
+					path0.push_back(source[i]);
+					sourceQueue.push(path0);
+				}
 				for (int i = 0; i < totalPixel; i++) {
 					tempVisited[i] = false;
 				}
 				break;
 			}
 			for (int i = 0; i < weightedMatrix[last].size(); ++i) {
-				if (!tempVisited[weightedMatrix[last][i].first] && check(weightedMatrix[last][i].first, currentPath) && weightedMatrix[last][i].second > 0 && initialMatrix1[weightedMatrix[last][i].first].second == 0) {
-					vector < int > opath(currentPath);
-	
+				if (!tempVisited[weightedMatrix[last][i].first] && check(weightedMatrix[last][i].first, cpath) && weightedMatrix[last][i].second > 0 && initialMatrix1[weightedMatrix[last][i].first].second == 0) {
+					vector < int > opath(cpath);
 					opath.push_back(weightedMatrix[last][i].first);
 					initialMatrix1[weightedMatrix[last][i].first].second = 1;
 					tempVisited[weightedMatrix[last][i].first] = true;
@@ -336,7 +314,7 @@ int main(int argc, char * * argv) {
 			}
 		}
 		if (flag == true) {
-			int smallest = 99999999;
+			int smallest = 1001;
 			for (int i = 0; i < path.size() - 1; i++) {
 				for (int j = 0; j < weightedMatrix[path[i]].size(); j++) {
 					if (weightedMatrix[path[i]][j].first == path[i + 1]) {
@@ -362,40 +340,7 @@ int main(int argc, char * * argv) {
 			}
 		}
 	}
-	int xxx = 0;
-	for (int i = 0; i < totalPixel; i++) {
-		if (!visited[i]) {
-			xxx++;
-		}
-	}
-	cout << "Total visited : " << xxx << endl;
-	Vec3b pixel;
-	pixel[0] = 255;
-	pixel[1] = 255;
-	pixel[2] = 255;
-	queue < int > PIXEL_COLOR;
-	int u = source[0];
-	PIXEL_COLOR.push(u);
-	visited[u] = true;
-	OUTPUT_IMAGE.at < Vec3b >(u / width, u % width) = pixel;
-	int mino = 99999999;
-	//performing BFS
-	while (!PIXEL_COLOR.empty()) {
-		int last = PIXEL_COLOR.front();
-		PIXEL_COLOR.pop();
-		for (int i = 0; i < weightedMatrix[last].size(); ++i) {
-			if (!visited[weightedMatrix[last][i].first] && initialMatrix2[weightedMatrix[last][i].first].second == 0 && weightedMatrix[last][i].second > 0) {
-				Vec3b pixel2;
-				pixel2[0] = 255; // blue color
-				pixel2[1] = 255; // red color
-				pixel2[2] = 255; // green color
-				OUTPUT_IMAGE.at < Vec3b >((weightedMatrix[last][i].first) / width, (weightedMatrix[last][i].first) % width) = pixel2;
-				visited[weightedMatrix[last][i].first] = true;
-				PIXEL_COLOR.push(weightedMatrix[last][i].first);
-				initialMatrix2[weightedMatrix[last][i].first].second = 1;
-			}
-		}
-	}
+	performBFS();
 	// write it on disk
 	imwrite(argv[3], OUTPUT_IMAGE);
 	// also display them both
